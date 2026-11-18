@@ -1,0 +1,105 @@
+Technical Report: Facial emotion recognition system
+
+1. Introduction
+
+Facial Emotion Recognition (FER) is a key task in human‑computer interaction, enabling machines to infer emotional states from facial expressions. This report describes a complete FER system that:
+
+Detects faces in images/video using Haar cascades.
+Recognises seven basic emotions via a pre‑trained CNN.
+Runs in real time on a standard webcam.
+Provides batch evaluation on labelled datasets.
+2. System Architecture
+
+The code is organised into six functional modules:
+
+Module	Responsibility
+preprocess_image	Resize, grayscale, CLAHE contrast enhancement.
+detect_faces	Haar cascade face detection with configurable parameters.
+get_emotion_scores	Wrapper around the FER library; returns emotion probability dictionary.
+draw_visualization	Draws bounding box, label, and horizontal bar chart for all emotions.
+run_webcam_mode	Captures video, skips frames for performance, overlays results.
+run_batch_mode	Processes a labelled dataset, computes accuracy and confusion matrix.
+3. Implementation Details
+
+3.1 Preprocessing
+
+python
+def preprocess_image(img, size=(224, 224)):
+    resized = cv2.resize(img, size)
+    gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
+    return enhanced
+Resizing to a fixed size ensures consistency for the emotion model.
+CLAHE (Contrast Limited Adaptive Histogram Equalization) improves local contrast, making features more robust to lighting variations.
+3.2 Face Detection
+
+Four Haar cascade configurations allow trade‑offs between detection rate and false positives:
+
+Config	Name	scaleFactor	minNeighbors	minSize	Behaviour
+0	Default (balanced)	1.05	4	(40,40)	Good for most cases.
+1	Sensitive	1.03	3	(30,30)	Finds more faces, may add FP.
+2	Strict	1.10	6	(50,50)	More strict detection.
+3	Fine‑grained	1.04	5	(35,35)	Balanced between the two.
+If the primary cascade (haarcascade_frontalface_default.xml) returns no faces, the script falls back to haarcascade_frontalface_alt2.xml with slightly relaxed minNeighbors.
+
+3.3 Emotion Recognition
+
+get_emotion_scores() calls emotion_detector.detect_emotions() from the FER library. The library uses a pre‑trained Keras CNN (trained on the FER‑2013 dataset). It returns a dictionary of seven emotions with confidence scores (0–1). The dominant emotion is the key with the highest score.
+
+3.4 Visualisation
+
+Bounding box – colour depends on the dominant emotion (e.g., yellow for happy, red for angry).
+Label – shows dominant emotion and its percentage.
+Bar chart panel – displays all seven emotions as horizontal bars with percentages, placed to the right of the face if space allows.
+3.5 Real‑time Optimisation
+
+To maintain high frame rates, face detection and emotion inference are performed only once every skip_frames frames (default 5). The last valid results are reused for the intermediate frames, providing smooth visual feedback with reduced CPU load.
+
+3.6 Batch Evaluation
+
+run_batch_mode():
+
+Iterates over each subfolder in dataset/ (folder name = ground‑truth emotion).
+For each image, runs emotion recognition and obtains a prediction.
+Compares prediction to ground truth.
+Computes overall accuracy using sklearn.metrics.accuracy_score.
+Generates a confusion matrix using confusion_matrix and saves it as confusion_matrix.png.
+Exports all results to results.csv.
+4. Performance & Results (Illustrative)
+
+Using the FER‑2013 test set or a similar dataset, typical performance:
+
+Overall accuracy: ~65–70%
+Best recognised emotions: happy, surprise, neutral
+Most confusion: fear ↔ sad, disgust ↔ angry
+Example confusion matrix (normalised):
+
+True\Pred	angry	disgust	fear	happy	neutral	sad	surprise
+angry	0.62	0.08	0.07	0.03	0.10	0.08	0.02
+happy	0.02	0.01	0.02	0.85	0.07	0.02	0.01
+neutral	0.05	0.02	0.04	0.06	0.73	0.08	0.02
+These numbers reflect the inherent difficulty of the task and the limitations of the FER‑2013 dataset.
+
+5. Limitations
+
+Haar cascades are fast but less accurate than modern deep learning detectors (MTCNN, RetinaFace). They struggle with profile faces, occlusions, and extreme lighting.
+FER library was trained on FER‑2013, which contains label noise and class imbalance. Performance degrades on unconstrained, real‑world images.
+Frame skipping can cause emotion “lag” when the face changes expression rapidly.
+Multiple faces – the current visualisation may overlap bar panels; the system still processes all detected faces.
+6. Future Work
+
+Replace Haar cascades with MTCNN or a lightweight CNN face detector for higher accuracy.
+Fine‑tune the emotion model on a custom dataset using TensorFlow/Keras.
+Add face tracking (e.g., with OpenCV’s tracker API) to maintain per‑face emotion history.
+Implement emotion logging – record emotions over time to a CSV file.
+Build a GUI (Tkinter/PyQt) for easier configuration and live plotting.
+7. Conclusion
+
+This project delivers a functional, modular, and configurable facial emotion recognition system. It works out‑of‑the‑box with a webcam or on a static dataset, provides informative visualisations, and allows quantitative assessment through batch evaluation. The code is suitable for educational demonstrations, prototyping, and as a foundation for further research.
+
+8. References
+
+OpenCV Haar cascades – OpenCV documentation
+FER library – GitHub
+FER‑2013 dataset – Kaggle
